@@ -291,6 +291,9 @@ class _LyricsView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<TrackDetailBloc, TrackDetailState>(
       builder: (context, state) {
+
+        print("This is chakshu");
+        print(state.lyrics?.lyrics.toString()??"");
         if (state.status == TrackDetailStatus.loading) {
           return const Center(child: CircularProgressIndicator());
         }

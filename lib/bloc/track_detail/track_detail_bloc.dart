@@ -36,6 +36,8 @@ class TrackDetailBloc extends Bloc<TrackDetailEvent, TrackDetailState> {
     Emitter<TrackDetailState> emit,
   ) async {
     try {
+      print(
+          'Fetching lyrics for: ${event.trackName}, ${event.artistName}, ${event.albumName}, ${event.duration}');
       final lyrics = await _trackRepository.getLyrics(
         event.trackName,
         event.artistName,

@@ -56,11 +56,14 @@ class TrackRepository {
   }
 
   Future<Lyrics> getLyrics(String trackName, String artistName, String albumName, int duration) async {
+    print("this is sparsh");
+    print("$trackName, $artistName, $albumName, $duration");
     try {
       final response = await http.get(
         Uri.parse(
             '$_lrcLibBaseUrl/get-cached?track_name=$trackName&artist_name=$artistName&album_name=$albumName&duration=$duration'),
       );
+      print(response.toString());
 
       if (response.statusCode == 200) {
         return Lyrics.fromJson(json.decode(response.body));
