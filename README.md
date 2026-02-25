@@ -47,5 +47,5 @@ Assuming 100,000 concurrent users:
 
 *   **Lyrics API Rate Limiting & Costs:** The most significant point of failure would be the external lyrics API. The `_fetchLyrics` function is called every time a new track is played. With 100,000 users frequently skipping tracks, this would generate millions of API requests. The service would likely hit rate limits, leading to failed requests and a poor user experience. Furthermore, if the API is a paid service, the operational costs would become unsustainable.
 
-    *   **Potential Solution:** Implement a caching layer (e.g., using a service like Redis or a local database on the backend) to store lyrics that have already been fetched. Before making a new API call, the system would first check this cache, dramatically reducing the number of requests to the external provider.
+
 
