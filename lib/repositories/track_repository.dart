@@ -55,18 +55,24 @@ class TrackRepository {
     }
   }
 
-  Future<Lyrics> getLyrics(String trackName, String artistName, String albumName, int duration) async {
-    print("this is sparsh");
-    print("$trackName, $artistName, $albumName, $duration");
+  Future<Lyrics> getLyrics(
+      String trackName, String artistName, String albumName, int duration) async {
+    final url = Uri.parse('$_lrcLibBaseUrl/get').replace(queryParameters: {
+      'track_name': trackName,
+      'artist_name': artistName,
+      'album_name': albumName,
+      'duration': duration.toString(),
+    });
+    print('Fetching lyrics from: $url');
     try {
-      final response = await http.get(
-        Uri.parse(
-            '$_lrcLibBaseUrl/get-cached?track_name=$trackName&artist_name=$artistName&album_name=$albumName&duration=$duration'),
-      );
-      print(response.toString());
+      final response = await http.get(url);
+      print('Lyrics API response status code: ${response.statusCode}');
+      print('Lyrics API response body: ${response.body}');
 
       if (response.statusCode == 200) {
         return Lyrics.fromJson(json.decode(response.body));
+      } else if (response.statusCode == 404) {
+        return Lyrics(lyrics: 'No lyrics found for this track.'); 
       } else {
         throw Exception('Failed to load lyrics');
       }

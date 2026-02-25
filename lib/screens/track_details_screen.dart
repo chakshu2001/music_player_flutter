@@ -161,7 +161,10 @@ class _TrackDetailsViewState extends State<_TrackDetailsView> {
             onPressed: () {
               showModalBottomSheet(
                 context: context,
-                builder: (context) => _LyricsView(),
+                builder: (_) => BlocProvider.value(
+                  value: BlocProvider.of<TrackDetailBloc>(context),
+                  child: _LyricsView(),
+                ),
                 backgroundColor: Colors.grey[900],
                 shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
