@@ -1,23 +1,51 @@
-# Music Player
+# Music Player Flutter App
 
-A Flutter music library app that can render and interact with 50,000+ tracks smoothly.
+This document provides a summary of the BLoC flow, design decisions, issues faced during development, and potential scalability challenges for the music player application.
 
-## How it Works
+## BLoC Flow Summary
 
-The app is built using the BLoC pattern for a clean separation of concerns.
+The track details screen utilizes a `TrackDetailBloc` to manage the state of fetching song lyrics.
 
-- **Lazy Loading & Paging**: The app uses infinite scrolling with lazy loading. The `TrackListBloc` fetches tracks in pages of 50 from the Deezer API. The `LibraryScreen` uses a `ScrollController` to detect when the user is near the bottom of the list and triggers the `FetchMoreTracks` event to load the next page. This keeps memory usage stable and scrolling smooth.
+### Events
 
-- **Search**: The search functionality reuses the `TrackListBloc`. When a search query is entered, the `FetchTracks` event is dispatched, clearing the list and loading the first page of search results. Infinite scrolling works seamlessly within the search results.
+*   `FetchLyrics`: This event is triggered when a new track begins playing. It takes the track name, artist name, album name, and duration as parameters to request the corresponding lyrics from the repository.
 
-## What would break at 100k items?
+### States
 
-The current approach will still work at 100,000 items due to the lazy loading strategy. However, to further optimize:
+The `TrackDetailBloc` manages the following states:
 
-- **UI Virtualization**: For even better performance, a custom `ScrollView` with a more aggressive widget recycling mechanism could be implemented.
+*   `TrackDetailState`: The primary state object which contains:
+    *   `TrackDetailStatus`: An enum representing the current status of the lyrics request.
+        *   `initial`: The default state.
+        *   `loading`: Indicates that a lyrics fetch is in progress.
+        *   `success`: Indicates that the lyrics were fetched successfully.
+        *   `failure`: Indicates that an error occurred while fetching lyrics.
+    *   `lyrics`: A `Lyrics` model object containing the lyrics text and a boolean `instrumental` flag.
+    *   `error`: An error message string, populated if the status is `failure`.
 
-- **Data Caching**: A local database cache (e.g., using `sqflite`) would reduce network requests and improve performance.
+The UI (`_LyricsView`) listens to state changes from the `TrackDetailBloc` and rebuilds accordingly, showing a loading indicator, "No lyrics found" message, "Instrumental" text, or the lyrics themselves.
 
-- **Search Debouncing**: To avoid excessive API calls while the user is typing, a debounce mechanism could be added to the search input.
+## Design Decisions
 
-- **Grouping + Sticky Headers**: For A-Z grouping, data would be pre-processed into a map. A custom `ScrollView` would then render the list with sticky headers for each group.
+Here are three key design decisions made in the `track_details_screen.dart` file:
+
+1.  **State Management with BLoC**: The decision was made to separate the business logic of fetching lyrics from the UI by using the BLoC pattern. A `TrackDetailBloc` is provided at the top of the widget tree (`TrackDetailsScreen`) and is made available to the `_LyricsView` modal bottom sheet using `BlocProvider.value`. This approach creates a decoupled and testable architecture, where the UI is only responsible for dispatching events and reacting to states.
+
+2.  **Local UI State Management with `StatefulWidget`**: The management of the audio player, current track index, and playback state (`_isPlaying`, `_position`, `_duration`) is handled locally within the `_TrackDetailsViewState`. This is a deliberate choice to keep UI-specific concerns, like player controls and animations, separate from the business logic managed by BLoC. This prevents cluttering the `TrackDetailBloc` with logic that is only relevant to this specific screen.
+
+3.  **Optimistic UI for Player Controls**: The UI for the play/pause button and the track progress slider updates immediately upon user interaction. For instance, when a user taps the pause button, the icon instantly changes to "play" (`_handlePlayPause`), providing immediate visual feedback. The actual state change in the `audioplayers` package happens asynchronously. This optimistic update strategy greatly improves the perceived responsiveness of the application.
+
+## Issue Faced & Fix
+
+*   **Issue:** When displaying the lyrics in the `showModalBottomSheet`, the lyrics data fetched in the main screen's context was not available to the `_LyricsView` widget within the bottom sheet. A new instance of the `TrackDetailBloc` would be created, losing the previously fetched state.
+
+*   **Fix:** The problem was resolved by using `BlocProvider.value` when building the modal bottom sheet. Instead of creating a new `TrackDetailBloc`, `BlocProvider.value(value: BlocProvider.of<TrackDetailBloc>(context), ...)` was used. This ensures that the existing `TrackDetailBloc` instance from the parent `TrackDetailsScreen` widget is passed down into the bottom sheet's widget tree, allowing `_LyricsView` to access the current state, including the fetched lyrics.
+
+## What Breaks at 100k Users?
+
+Assuming 100,000 concurrent users:
+
+*   **Lyrics API Rate Limiting & Costs:** The most significant point of failure would be the external lyrics API. The `_fetchLyrics` function is called every time a new track is played. With 100,000 users frequently skipping tracks, this would generate millions of API requests. The service would likely hit rate limits, leading to failed requests and a poor user experience. Furthermore, if the API is a paid service, the operational costs would become unsustainable.
+
+    *   **Potential Solution:** Implement a caching layer (e.g., using a service like Redis or a local database on the backend) to store lyrics that have already been fetched. Before making a new API call, the system would first check this cache, dramatically reducing the number of requests to the external provider.
+
