@@ -38,7 +38,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       backgroundColor: Colors.black, // Changed to black for deeper contrast
       appBar: AppBar(
         title: const Text('Music Library',
-            style:
+            style: 
                 TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -198,9 +198,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                                   builder: (context) => TrackDetailsScreen(
                                     trackList: trackList,
                                     initialIndex: trackIndex,
+                                    audioPlayer: _audioPlayer,
+                                    playingTrackId: _playingTrackId,
                                   ),
                                 ),
-                              );
+                              ).then((_) => setState((){}));
                             }
                           },
                         );

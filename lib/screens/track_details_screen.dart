@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -10,11 +11,15 @@ import 'package:music_player/repositories/track_repository.dart';
 class TrackDetailsScreen extends StatelessWidget {
   final List<Track> trackList;
   final int initialIndex;
+  final AudioPlayer audioPlayer;
+  final int? playingTrackId;
 
   const TrackDetailsScreen({
     super.key,
     required this.trackList,
     required this.initialIndex,
+    required this.audioPlayer,
+    this.playingTrackId,
   });
 
   @override
@@ -24,6 +29,8 @@ class TrackDetailsScreen extends StatelessWidget {
       child: _TrackDetailsView(
         trackList: trackList,
         initialIndex: initialIndex,
+        audioPlayer: audioPlayer,
+        playingTrackId: playingTrackId,
       ),
     );
   }
@@ -32,10 +39,14 @@ class TrackDetailsScreen extends StatelessWidget {
 class _TrackDetailsView extends StatefulWidget {
   final List<Track> trackList;
   final int initialIndex;
+  final AudioPlayer audioPlayer;
+  final int? playingTrackId;
 
   const _TrackDetailsView({
     required this.trackList,
     required this.initialIndex,
+    required this.audioPlayer,
+    this.playingTrackId,
   });
 
   @override
@@ -45,45 +56,68 @@ class _TrackDetailsView extends StatefulWidget {
 class _TrackDetailsViewState extends State<_TrackDetailsView> {
   late int _currentIndex;
   late Track _currentTrack;
-  final _audioPlayer = AudioPlayer();
+  late final AudioPlayer _audioPlayer;
   bool _isPlaying = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
+  final _subscriptions = <StreamSubscription>[];
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
     _currentTrack = widget.trackList[_currentIndex];
-    _playCurrentTrack();
+    _audioPlayer = widget.audioPlayer;
 
-    _audioPlayer.onPlayerStateChanged.listen((state) {
+    if (_currentTrack.id != widget.playingTrackId ||
+        _audioPlayer.state != PlayerState.playing) {
+      _playCurrentTrack();
+    } else {
+      // Sync UI with playing track
+      _isPlaying = true;
+      _audioPlayer.getDuration().then((d) {
+        if (mounted && d != null) {
+          setState(() {
+            _duration = d;
+          });
+        }
+      });
+      _audioPlayer.getCurrentPosition().then((p) {
+        if (mounted && p != null) {
+          setState(() {
+            _position = p;
+          });
+        }
+      });
+    }
+
+    _subscriptions.add(_audioPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) {
         setState(() {
           _isPlaying = state == PlayerState.playing;
         });
       }
-    });
+    }));
 
-    _audioPlayer.onDurationChanged.listen((newDuration) {
+    _subscriptions.add(_audioPlayer.onDurationChanged.listen((newDuration) {
       if (mounted) {
         setState(() {
           _duration = newDuration;
         });
       }
-    });
+    }));
 
-    _audioPlayer.onPositionChanged.listen((newPosition) {
+    _subscriptions.add(_audioPlayer.onPositionChanged.listen((newPosition) {
       if (mounted) {
         setState(() {
           _position = newPosition;
         });
       }
-    });
+    }));
 
-    _audioPlayer.onPlayerComplete.listen((event) {
+    _subscriptions.add(_audioPlayer.onPlayerComplete.listen((event) {
       _playNext();
-    });
+    }));
 
     _fetchLyrics();
   }
@@ -99,7 +133,9 @@ class _TrackDetailsViewState extends State<_TrackDetailsView> {
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
+    for (var sub in _subscriptions) {
+      sub.cancel();
+    }
     super.dispose();
   }
 
@@ -147,6 +183,9 @@ class _TrackDetailsViewState extends State<_TrackDetailsView> {
 
   @override
   Widget build(BuildContext context) {
+    final sliderMax = _duration.inSeconds.toDouble();
+    final sliderValue = _position.inSeconds.toDouble().clamp(0.0, sliderMax);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -227,8 +266,8 @@ class _TrackDetailsViewState extends State<_TrackDetailsView> {
                 const SizedBox(height: 32),
                 Slider(
                   min: 0,
-                  max: _duration.inSeconds.toDouble() + 1.0,
-                  value: _position.inSeconds.toDouble(),
+                  max: sliderMax > 0 ? sliderMax : 1.0,
+                  value: sliderValue,
                   onChanged: (value) async {
                     final position = Duration(seconds: value.toInt());
                     await _audioPlayer.seek(position);
